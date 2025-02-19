@@ -28,6 +28,25 @@ The Unit Tests depend on [Catch2](https://github.com/catchorg/Catch2) which will
 
 Everything is defined in header files and therefore simply can be included without library compilation into one's own code. 
 
+You can install the package by doing:
+``` bash
+cd <path/to/ddfunKokkos>
+cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$PWD/install
+make -C build -j install
+```
+
+Once installed, you can add this to your environment:
+```bash
+export CMAKE_PREFIX_PATH=/path/to/ddfunKokkos/install/lib/cmake/ddfunKokkos
+```
+Then you can add this to your own `CMakeLists.txt`:
+```cmake
+find_package(ddfunKokkos REQUIRED)
+target_link_libraries(MyTarget PRIVATE ddfunKokkos::ddfunKokkos)
+```
+
+And it should provide the proper include paths in your build commands.
+
 # Pieces of DDFUN Implemented thus far:
 
 ## In [`src/ddouble.hpp`](./src/ddouble.hpp):
