@@ -1,3 +1,11 @@
+# cobalt scheduler logs
+*.cobaltlog
+*.output
+*.error
+
+# cmake build directory
+build
+
 # Prerequisites
 *.d
 
