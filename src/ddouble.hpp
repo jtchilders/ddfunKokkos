@@ -19,6 +19,7 @@ KOKKOS_INLINE_FUNCTION ddouble ddsub(const ddouble &a, const ddouble &b);
 KOKKOS_INLINE_FUNCTION ddouble ddmul(const ddouble &a, const ddouble &b);
 KOKKOS_INLINE_FUNCTION ddouble dddiv(const ddouble &a, const ddouble &b);
 KOKKOS_INLINE_FUNCTION ddouble ddmuld(const ddouble &a, const double &b);
+KOKKOS_INLINE_FUNCTION ddouble ddmuldd(const double da, const double db);
 KOKKOS_INLINE_FUNCTION ddouble dddivd(const ddouble &a, const double &b);
 KOKKOS_INLINE_FUNCTION ddouble ddexp(const ddouble &a);
 KOKKOS_INLINE_FUNCTION ddouble ddlog(const ddouble &a);
@@ -30,7 +31,6 @@ KOKKOS_INLINE_FUNCTION ddouble ddpower(const ddouble &a, const ddouble &b);
 KOKKOS_INLINE_FUNCTION ddouble ddacosh(const ddouble &a);
 KOKKOS_INLINE_FUNCTION ddouble ddasinh(const ddouble &a);
 KOKKOS_INLINE_FUNCTION ddouble ddatanh(const ddouble &a);
-KOKKOS_INLINE_FUNCTION ddouble ddmuldd(const double da, const double db);
 
 ///////////////////////////////////////////////////////////////////////////////
 // The ddouble type.

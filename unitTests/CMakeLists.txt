@@ -12,3 +12,6 @@ FetchContent_MakeAvailable(catch2)
 add_executable(unit_tests unit_tests.cpp ddfuna_partial.f90 ${DDFUN_KOKKOS_SRC})
 target_link_libraries(unit_tests PRIVATE Kokkos::kokkos Catch2::Catch2)
 target_include_directories(unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
+# install unit_tests
+install(TARGETS unit_tests)
