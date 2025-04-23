@@ -87,6 +87,52 @@ struct ddcomplex {
       return ddcomplex(s2 * s0, s1 * s0);
    }
 
+   // Equality comparison operator
+   KOKKOS_INLINE_FUNCTION
+   bool operator==(const ddcomplex &b) const {
+      return (real == b.real) && (imag == b.imag);
+   }
+
+   // Inequality comparison operator
+   KOKKOS_INLINE_FUNCTION
+   bool operator!=(const ddcomplex &b) const {
+      return !(*this == b);
+   }
+
+   // Complex comparison function
+   KOKKOS_INLINE_FUNCTION
+   int compare(const ddcomplex &b) const {
+      // First compare real parts
+      if (real.hi < b.real.hi) {
+         return -1;
+      } else if (real.hi > b.real.hi) {
+         return 1;
+      } else {
+         // Real parts are equal, compare low parts
+         if (real.lo < b.real.lo) {
+            return -1;
+         } else if (real.lo > b.real.lo) {
+            return 1;
+         } else {
+            // Real parts are exactly equal, compare imaginary parts
+            if (imag.hi < b.imag.hi) {
+               return -1;
+            } else if (imag.hi > b.imag.hi) {
+               return 1;
+            } else {
+               // Compare low parts of imaginary components
+               if (imag.lo < b.imag.lo) {
+                  return -1;
+               } else if (imag.lo > b.imag.lo) {
+                  return 1;
+               } else {
+                  return 0;  // Numbers are exactly equal
+               }
+            }
+         }
+      }
+   }
+
    KOKKOS_INLINE_FUNCTION
    ddcomplex pwr(const int& n) const{
       /* 

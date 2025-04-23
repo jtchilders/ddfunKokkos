@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <inttypes.h>
 #include <vector>
+#include <iomanip>
 
 namespace ddfun {
 
@@ -31,6 +32,10 @@ KOKKOS_INLINE_FUNCTION ddouble ddpower(const ddouble &a, const ddouble &b);
 KOKKOS_INLINE_FUNCTION ddouble ddacosh(const ddouble &a);
 KOKKOS_INLINE_FUNCTION ddouble ddasinh(const ddouble &a);
 KOKKOS_INLINE_FUNCTION ddouble ddatanh(const ddouble &a);
+KOKKOS_INLINE_FUNCTION ddouble ddang(const ddouble &x, const ddouble &y);
+KOKKOS_INLINE_FUNCTION ddouble ddnrtf(const ddouble &a, const int& n);
+KOKKOS_INLINE_FUNCTION ddouble ddpolyr(const int n, const Kokkos::View<const ddouble*>& a, const ddouble& x0);
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // The ddouble type.
@@ -56,6 +61,11 @@ struct ddouble {
    }
 
    KOKKOS_INLINE_FUNCTION
+   bool operator==(const ddouble &b) const {
+      return (hi == b.hi) && (lo == b.lo);
+   }
+
+   KOKKOS_INLINE_FUNCTION
    ddouble operator-() const { return ddneg(*this); }
 
    KOKKOS_INLINE_FUNCTION
@@ -76,6 +86,12 @@ struct ddouble {
    KOKKOS_INLINE_FUNCTION
    ddouble operator/(const double &b) const { return dddivd(*this, b); }
 
+   KOKKOS_INLINE_FUNCTION
+   bool operator<(const ddouble &b) const { return (hi < b.hi) || ((hi == b.hi) && (lo < b.lo)); }
+
+   KOKKOS_INLINE_FUNCTION
+   bool operator>(const ddouble &b) const { return (hi > b.hi) || ((hi == b.hi) && (lo > b.lo)); }
+   
    KOKKOS_INLINE_FUNCTION
    ddouble exp() const { return ddexp(*this); }
 
@@ -109,9 +125,36 @@ struct ddouble {
 
 // Host-only print operator.
 inline std::ostream& operator<<(std::ostream &os, const ddouble &d) {
-   os << "[ " << d.hi << ", " << d.lo << " ]";
+   os << "[ " << std::setprecision(16) << std::scientific << d.hi << ", " << std::setprecision(16) << std::scientific << d.lo << " ]";
    return os;
 }
+
+
+///////////////////////////////////////////////////////////////////////////////
+// Constants
+///////////////////////////////////////////////////////////////////////////////
+
+KOKKOS_INLINE_FUNCTION
+ddouble make_ddouble_from_bits(uint64_t hi_bits, uint64_t lo_bits) {
+   double hi, lo;
+   #ifndef __CUDA_ARCH__
+      std::memcpy(&hi, &hi_bits, sizeof(double));
+      std::memcpy(&lo, &lo_bits, sizeof(double));
+   #else
+      hi = __longlong_as_double(hi_bits);
+      lo = __longlong_as_double(lo_bits);
+   #endif
+   return ddouble(hi, lo);
+}
+
+// Mathematical constants in double-double precision
+KOKKOS_INLINE_FUNCTION ddouble get_dd_pi()    { return make_ddouble_from_bits(0x400921fb54442d18ULL, 0x3ca1a62633145c07ULL); }
+KOKKOS_INLINE_FUNCTION ddouble get_dd_e()     { return make_ddouble_from_bits(0x4005bf0a8b145769ULL, 0x3ca4d57ee2b1013aULL); }
+KOKKOS_INLINE_FUNCTION ddouble get_dd_sqrt2() { return make_ddouble_from_bits(0x3ff6a09e667f3bcdULL, 0xbc9bdd3413b26456ULL); }
+KOKKOS_INLINE_FUNCTION ddouble get_dd_log2()  { return make_ddouble_from_bits(0x3fe62e42fefa39efULL, 0x3c7abc9e3b39803fULL); }
+KOKKOS_INLINE_FUNCTION ddouble get_dd_log10() { return make_ddouble_from_bits(0x40026bb1bbb55516ULL, 0xbcaf48ad494ea3e9ULL); }
+KOKKOS_INLINE_FUNCTION ddouble get_dd_loge()  { return make_ddouble_from_bits(0x3ff0000000000000ULL, 0xb560000000000000ULL); }
+KOKKOS_INLINE_FUNCTION ddouble get_dd_euler() { return make_ddouble_from_bits(0x3fe2788cfc6fb619ULL, 0xbc56cb90701fbfabULL); }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Inline definitions of ddmath functions.
@@ -586,5 +629,176 @@ void ddcssnr(const ddouble &a, ddouble &x, ddouble &y) {
    y = s1;
 }
 
+KOKKOS_INLINE_FUNCTION
+ddouble ddagmr(const ddouble &a, const ddouble &b) {
+   const int itrmx = 100;
+   // Compute eps = 2^(–104) using ldexp (i.e. ldexp(1.0, -104))
+   double eps = ldexp(1.0, -104);
+   
+   // Set s1 = a, s2 = b.
+   ddouble s1 = a;
+   ddouble s2 = b;
+   ddouble s0, s3;
+   bool converged = false;
+   
+   // AGM iteration: 
+   //    s1 = (s1 + s2)/2, s2 = sqrt(s1 * s2)
+   for (int j = 1; j <= itrmx; ++j) {
+      s0 = s1 + s2;
+      s3 = ddmuld(s0, 0.5);         // s3 = 0.5 * (s1 + s2)
+      s0 = s1 * s2;
+      s2 = ddsqrt(s0);              // s2 = sqrt(s1 * s2)
+      s1 = s3;
+      
+      s0 = s1 - s2;
+      
+      // Check for convergence: if the high-order error is zero or
+      // if the relative error s0.hi/s1.hi is less than eps.
+      if (s0.hi == 0.0 || (s1.hi != 0.0 && (s0.hi / s1.hi) < eps)) {
+         converged = true;
+         break;
+      }
+   }
+   
+   if (!converged) {
+      Kokkos::printf("*** DDAGMR: Iteration limit exceeded.\n");
+      return ddouble(); // simply return with c unchanged (or set to a default value)
+   }
+
+   return s1;
+}
+
+
+
+// ddang: Compute the angle subtended by (x,y) in the x-y plane
+// Returns angle in radians in range [-pi, pi]
+KOKKOS_INLINE_FUNCTION
+ddouble ddang(const ddouble &x, const ddouble &y) {
+    // Check if both x and y are zero
+    if (x.hi == 0.0 && x.lo == 0.0 && y.hi == 0.0 && y.lo == 0.0) {
+        // In C++, we'll return 0 instead of aborting like in Fortran
+        return ddouble(0.0);
+    }
+
+    // Handle special cases where x or y is zero
+    const ddouble pi = get_dd_pi();
+
+    if (x.hi == 0.0 && x.lo == 0.0) {
+        return y.hi > 0.0 ? ddmuld(pi, 0.5) : ddmuld(pi, -0.5);
+    }
+    if (y.hi == 0.0 && y.lo == 0.0) {
+        return x.hi > 0.0 ? ddouble(0.0) : pi;
+    }
+
+    // Normalize x and y so that x^2 + y^2 = 1
+    ddouble s0 = ddmul(x, x);
+    ddouble s1 = ddmul(y, y);
+    ddouble s2 = ddadd(s0, s1);
+    ddouble s3 = ddsqrt(s2);
+    ddouble nx = dddiv(x, s3);
+    ddouble ny = dddiv(y, s3);
+
+    // Initial approximation using standard atan2
+    ddouble a(atan2(ny.hi, nx.hi));
+
+    // Choose which coordinate to use for Newton iteration
+    bool use_x = fabs(nx.hi) <= fabs(ny.hi);
+    ddouble target = use_x ? nx : ny;
+
+    // Newton-Raphson iteration
+    for (int k = 0; k < 3; k++) {
+        ddouble sin_a, cos_a;
+        ddcssnr(a, cos_a, sin_a);
+
+        ddouble correction;
+        if (use_x) {
+            // z_{k+1} = z_k - [x - Cos(z_k)] / Sin(z_k)
+            correction = dddiv(ddsub(target, cos_a), sin_a);
+            a = ddsub(a, correction);
+        } else {
+            // z_{k+1} = z_k + [y - Sin(z_k)] / Cos(z_k)
+            correction = dddiv(ddsub(target, sin_a), cos_a);
+            a = ddadd(a, correction);
+        }
+    }
+
+    return a;
+}
+
+
+// Compute the principal value of the inverse tangent of y/x
+// The computation first normalizes x and y to have norm 1, then
+// uses a Newton-Raphson iteration to converge to the correct value
+KOKKOS_INLINE_FUNCTION
+ddouble ddnrtf(const ddouble &a, const int &n) {
+    // Handle special cases
+    if (a.hi == 0.0 && a.lo == 0.0) {
+        return ddouble(0.0, 0.0);
+    }
+    
+    // Error cases - in device code we can't print errors, so we return NaN
+    if (a.hi < 0.0 || n <= 0) {
+        return ddouble(NAN, NAN);
+    }
+
+    // Handle cases N = 1 and 2
+    if (n == 1) {
+        return a;
+    } else if (n == 2) {
+        return ddsqrt(a);
+    }
+
+    // Initialize constants
+    const ddouble one(1.0, 0.0);
+    const double tn = static_cast<double>(n);
+
+    // Compute initial approximation of A^(-1/N)
+    ddouble b(exp(-log(a.hi) / tn), 0.0);
+
+    // Perform Newton-Raphson iteration
+    for (int k = 0; k < 3; k++) {
+        ddouble s0 = ddnpwr(b, n);        // b^n
+        ddouble s1 = a * s0;              // a * b^n
+        s0 = one - s1;                    // 1 - a * b^n
+        s1 = b * s0;                      // b * (1 - a * b^n)
+        s0 = dddivd(s1, tn);              // (b * (1 - a * b^n)) / n
+        b = b + s0;                       // b + (b * (1 - a * b^n)) / n
+    }
+
+    // Take reciprocal for final result
+    return one / b;
+}
+
+// Polynomial root finder using Newton's method
+KOKKOS_INLINE_FUNCTION
+ddouble ddpolyr(const int n, const Kokkos::View<const ddouble*>& a, const ddouble& x0) {
+    // Implementation of polynomial root finder using Newton's method
+    const int max_iter = 50;
+    const ddouble eps = ddouble(1.0e-30);
+    ddouble x = x0;
+    
+    for (int iter = 0; iter < max_iter; ++iter) {
+        // Compute polynomial value and derivative
+        ddouble p = a(n);
+        ddouble dp = ddouble(0.0);
+        
+        for (int i = n-1; i >= 0; --i) {
+            dp = dp * x + p;
+            p = p * x + a(i);
+        }
+        
+        // Check for convergence
+        if (ddabs(p) < eps * ddabs(a(n))) {
+            return x;
+        }
+        
+        // Update using Newton's method
+        x = x - p / dp;
+    }
+    
+    // If we get here, we didn't converge
+    printf("ddpolyr: Failed to converge after %d iterations\n", max_iter);
+    return x;
+}
 
 } // end namespace ddfun

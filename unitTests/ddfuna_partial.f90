@@ -2179,7 +2179,7 @@ subroutine ddnrtf (a, n, b) bind(C, name="ddnrtf_fortran")
 
 implicit none
 real(c_double), intent(in):: a(2)
-integer, intent(in):: n
+integer(c_int), intent(in):: n
 real(c_double), intent(out):: b(2)
 integer i, k
 real(c_double) t1, t2, tn
@@ -2284,7 +2284,7 @@ subroutine ddpolyr (n, a, x0, x) bind(C, name="ddpolyr_fortran")
 !   necessary to adjust eps -- default value is 1.d-29.
 
 implicit none
-integer, intent(in):: n
+integer(c_int), intent(in):: n
 real(c_double), intent(in):: a(2,0:n), x0(2)
 real(c_double), intent(out):: x(2)
 real(c_double), parameter:: eps = 1.d-29

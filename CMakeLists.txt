@@ -2,6 +2,9 @@
 cmake_minimum_required(VERSION 3.10)
 project(ddfunKokkos VERSION 1.0.0 LANGUAGES CXX Fortran)
 
+# Enable compile commands generation for IDE support
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
