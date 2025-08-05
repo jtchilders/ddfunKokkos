@@ -87,6 +87,8 @@ Run the unit tests with:
 ./build/unitTests/unit_tests
 ```
 
+Tested on JLSE V100 GPUs using Kokkos v4.5.01 and CUDA 12.3 and GCC 12.2.0
+
 # DDFUN Lincensing with Update
 
 An updated version of David's original license is [HERE](./DHB-License.txt)
